@@ -36,11 +36,12 @@
 
 #define LOG_TAG "RIL"
 #include <utils/Log.h>
+#include <cutils/properties.h>
 
 #define MAX_AT_RESPONSE 0x1000
 
 /* pathname returned from RIL_REQUEST_SETUP_DATA_CALL / RIL_REQUEST_SETUP_DEFAULT_PDP */
-#define PPP_TTY_PATH "/dev/omap_csmi_tty1"
+#define PPP_TTY_PATH "/dev/ppp0"
 
 #ifdef USE_TI_COMMANDS
 
@@ -239,7 +240,8 @@ static void onSIMReady()
      * ds = 1   // Status reports routed to TE
      * bfr = 1  // flush buffer
      */
-    at_send_command("AT+CNMI=1,2,2,1,1", NULL);
+    LOGI ("######### SIM READY !!\n");
+    at_send_command("AT+CNMI=1,2,2,1,0", NULL);
 }
 
 static void requestRadioPower(void *data, size_t datalen, RIL_Token t)
@@ -987,18 +989,18 @@ static void requestSetupDataCall(void *data, size_t datalen, RIL_Token t)
 	    len = strlen(cmd);
 
 	    while (cur < len) {
-		    do {
+	        do {
 	            written = write (fd, cmd + cur, len - cur);
 	        } while (written < 0 && errno == EINTR);
 
 	        if (written < 0) {
-                LOGE("### ERROR writing to /dev/qmi");
-                close(fd);
-                goto error;
-            }
+                    LOGE("### ERROR writing to /dev/qmi");
+                    close(fd);
+                    goto error;
+                }
 
-            cur += written;
-        }
+                cur += written;
+            }
 
         // wait for interface to come online
 
@@ -1022,8 +1024,8 @@ static void requestSetupDataCall(void *data, size_t datalen, RIL_Token t)
 
         if (retry == 0) {
             LOGE("### Failed to get data connection up\n");
-	        goto error;
-		}
+            goto error;
+        }
 
         qmistatus = system("netcfg rmnet0 dhcp");
 
@@ -1031,31 +1033,41 @@ static void requestSetupDataCall(void *data, size_t datalen, RIL_Token t)
 
 	    if (qmistatus < 0) goto error;
 
-	} else {
+    } else {
 
-        asprintf(&cmd, "AT+CGDCONT=1,\"IP\",\"%s\",,0,0", apn);
+        //asprintf(&cmd, "AT+CGDCONT=1,\"IP\",\"%s\",,0,0", apn);
 	    //FIXME check for error here
-	    err = at_send_command(cmd, NULL);
-	    free(cmd);
+	    //err = at_send_command(cmd, NULL);
+	    //free(cmd);
 
 	    // Set required QoS params to default
-	    err = at_send_command("AT+CGQREQ=1", NULL);
+	    //err = at_send_command("AT+CGQREQ=1", NULL);
 
 	    // Set minimum QoS params to default
-	    err = at_send_command("AT+CGQMIN=1", NULL);
+	    //err = at_send_command("AT+CGQMIN=1", NULL);
 
 	    // packet-domain event reporting
-	    err = at_send_command("AT+CGEREP=1,0", NULL);
+	    //err = at_send_command("AT+CGEREP=1,0", NULL);
 
 	    // Hangup anything that's happening there now
-	    err = at_send_command("AT+CGACT=1,0", NULL);
+	    //err = at_send_command("AT+CGACT=1,0", NULL);
+	    //err = at_send_command("AT+CGACT=1,1", NULL);
 
 	    // Start data on PDP context 1
-	    err = at_send_command("ATD*99***1#", &p_response);
-
-	    if (err < 0 || p_response->success == 0) {
+	    //err = at_send_command("ATD*99***1#", &p_response);
+	    //err = at_send_command("ATD*99#", &p_response);
+        //system("echo test");
+        //system("pppd call gprs");
+		//property_set("ctl.start", "pppd_gprs");
+        //LOGD("ctrl.start err = %d\n", err);
+	    //err = system("pppd call gprs");
+        //LOGD("pppd err = %d\n", err);
+	    /*if (err < 0 || p_response->success == 0) {
 	        goto error;
-	    }
+	    }*/
+        // add pppd init code under this line
+
+
     }
 
     RIL_onRequestComplete(t, RIL_E_SUCCESS, response, sizeof(response));
@@ -1836,9 +1848,6 @@ static void initializeCallback(void *param)
     /*  Alternating voice/data off */
     at_send_command("AT+CMOD=0", NULL);
 
-    /*  Not muted */
-    at_send_command("AT+CMUT=0", NULL);
-
     /*  +CSSU unsolicited supp service notifications */
     at_send_command("AT+CSSN=0,1", NULL);
 
@@ -1893,7 +1902,7 @@ static void onUnsolicited (const char *s, const char *sms_pdu)
 {
     char *line = NULL;
     int err;
-
+LOGI("!!!!!!!!!!!!!!!!!!!!!!  reference-ril.c onUnsolicited !!!!!!!!!!!!!!!!!!!!!!1\n");
     /* Ignore unsolicited responses until we're initialized.
      * This is OK because the RIL library will poll for initial state
      */
@@ -2031,7 +2040,7 @@ mainLoop(void *param)
                                             SOCK_STREAM );
             } else if (s_device_path != NULL) {
                 fd = open (s_device_path, O_RDWR);
-                if ( fd >= 0 && !memcmp( s_device_path, "/dev/ttyS", 9 ) ) {
+                if ( fd >= 0) {
                     /* disable echo on serial ports */
                     struct termios  ios;
                     tcgetattr( fd, &ios );
@@ -2046,6 +2055,50 @@ mainLoop(void *param)
                 /* never returns */
             }
         }
+
+#if 0
+    fd=-1;
+    while  (fd < 0) {
+        LOGI ("xp-debug mainLoop\n");
+    //  signal(SIGIO, SIG_IGN); // the important one.
+
+        fd = open("/dev/ttyUSB0", O_RDWR | O_NOCTTY);
+        LOGD ("##############open /dev/ttyUSB0##############\n");
+        if (fd < 0) {
+              LOGI ("fd < 0  fd:%d\n",fd);
+              //return 0;
+        } else {
+            fcntl(fd,F_SETFL,0);
+            struct termios my_termios;
+            tcgetattr(fd, &my_termios);
+
+            cfsetispeed(&my_termios,B9600);  // Baud rate 9600
+            cfsetospeed(&my_termios,B9600);
+
+            my_termios.c_cflag &= ~CSIZE;   // 8 data bits
+            my_termios.c_cflag &= ~PARENB;  // no parity
+            my_termios.c_cflag &= ~CSTOPB;  // No hw flow control
+            my_termios.c_cflag &= ~CRTSCTS;
+            my_termios.c_cflag |= CS8;
+            my_termios.c_lflag &= ~(ICANON|ECHO|ECHOE|ISIG);  // No terminal processing
+            my_termios.c_oflag &= ~OPOST;
+
+            my_termios.c_cc[VMIN] = 0;   // Timeout before packet (unused)
+            my_termios.c_cc[VTIME] = 10;  // Timeout between characters
+            my_termios.c_iflag &= ~(IXON|IXOFF|IXANY); // Disable sw flow control
+
+            my_termios.c_cflag |= (CLOCAL|CREAD);
+
+            tcsetattr(fd,TCSANOW, &my_termios);
+            fcntl(fd,F_SETFL,0);
+        }
+        if (fd < 0) {
+            perror ("opening AT interface. retrying...");
+            sleep(10);
+            /* never returns */
+        }
+    }
+#endif
 
         s_closed = 0;
         ret = at_open(fd, onUnsolicited);

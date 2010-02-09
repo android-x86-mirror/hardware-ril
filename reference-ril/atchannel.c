@@ -208,6 +208,8 @@ static const char * s_smsUnsoliciteds[] = {
     "+CMT:",
     "+CDS:",
     "+CBM:"
+    //,"+CMGR"
+    //,"+CMTI"
 };
 static int isSMSUnsolicited(const char *line)
 {

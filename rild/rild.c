@@ -131,8 +131,8 @@ int main(int argc, char **argv)
         }
     }
 
+#if 0
     /* special override when in the emulator */
-#if 1
     {
         static char*  arg_overrides[3];
         static char   arg_device[32];
