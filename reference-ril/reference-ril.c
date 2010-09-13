@@ -36,11 +36,12 @@
 
 #define LOG_TAG "RIL"
 #include <utils/Log.h>
+#include <cutils/properties.h>
 
 #define MAX_AT_RESPONSE 0x1000
 
 /* pathname returned from RIL_REQUEST_SETUP_DATA_CALL / RIL_REQUEST_SETUP_DEFAULT_PDP */
-#define PPP_TTY_PATH "/dev/omap_csmi_tty1"
+#define PPP_TTY_PATH "/dev/ppp0"
 
 #ifdef USE_TI_COMMANDS
 
@@ -241,7 +242,8 @@ static void onSIMReady()
      * ds = 1   // Status reports routed to TE
      * bfr = 1  // flush buffer
      */
-    at_send_command("AT+CNMI=1,2,2,1,1", NULL);
+    LOGI ("######### SIM READY !!\n");
+    at_send_command("AT+CNMI=1,2,2,1,0", NULL);
 }
 
 static void requestRadioPower(void *data, size_t datalen, RIL_Token t)
@@ -1033,8 +1035,8 @@ static void requestSetupDataCall(void *data, size_t datalen, RIL_Token t)
 
 	    if (qmistatus < 0) goto error;
 
-	} else {
-
+    } else {
+#if 0
         asprintf(&cmd, "AT+CGDCONT=1,\"IP\",\"%s\",,0,0", apn);
 	    //FIXME check for error here
 	    err = at_send_command(cmd, NULL);
@@ -1058,6 +1060,7 @@ static void requestSetupDataCall(void *data, size_t datalen, RIL_Token t)
 	    if (err < 0 || p_response->success == 0) {
 	        goto error;
 	    }
+#endif
     }
 
     RIL_onRequestComplete(t, RIL_E_SUCCESS, response, sizeof(response));
@@ -1838,9 +1841,6 @@ static void initializeCallback(void *param)
     /*  Alternating voice/data off */
     at_send_command("AT+CMOD=0", NULL);
 
-    /*  Not muted */
-    at_send_command("AT+CMUT=0", NULL);
-
     /*  +CSSU unsolicited supp service notifications */
     at_send_command("AT+CSSN=0,1", NULL);
 
@@ -2033,7 +2033,7 @@ mainLoop(void *param)
                                             SOCK_STREAM );
             } else if (s_device_path != NULL) {
                 fd = open (s_device_path, O_RDWR);
-                if ( fd >= 0 && !memcmp( s_device_path, "/dev/ttyS", 9 ) ) {
+                if (fd >= 0) {
                     /* disable echo on serial ports */
                     struct termios  ios;
                     tcgetattr( fd, &ios );
